@@ -3,7 +3,10 @@
 // It prints an API User + API Key -- copy both into your .env as
 // MOMO_API_USER and MOMO_API_KEY, then you're ready to call requestToPay.
 import 'dotenv/config'
+import dns from 'dns'
 import { provisionSandboxUser } from './services/momo.js'
+
+dns.setDefaultResultOrder('ipv4first')
 
 try {
   const { apiUser, apiKey } = await provisionSandboxUser()

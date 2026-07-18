@@ -56,7 +56,7 @@ async function ensureIpnRegistered() {
   }
 
   const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/URLSetup/RegisterIPNURL`, {
+  const res = await fetch(`${BASE_URL}/URLSetup/RegisterIPN`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
