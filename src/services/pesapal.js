@@ -6,6 +6,18 @@ const BASE_URL = IS_SANDBOX
 const CONSUMER_KEY = process.env.PESAPAL_CONSUMER_KEY
 const CONSUMER_SECRET = process.env.PESAPAL_CONSUMER_SECRET
 
+// Pesapal's error responses aren't always the same shape (varies by endpoint
+// and failure type) -- this checks the common places a real message shows up
+// before falling back to something generic.
+function extractPesapalError(data, fallback) {
+  return (
+    data?.error?.message ||
+    data?.message ||
+    (typeof data?.error === 'string' ? data.error : null) ||
+    fallback
+  )
+}
+
 // Cached after first registration so we don't re-register on every request.
 // Resets on server restart, which is fine -- registering again is harmless.
 let cachedIpnId = process.env.PESAPAL_IPN_ID || null
@@ -22,7 +34,13 @@ async function getAccessToken() {
   })
 
   const data = await res.json()
-  if (!res.ok || !data.token) throw new Error(data.message || 'Pesapal auth failed')
+  if (!res.ok || !data.token) {
+    const reason = extractPesapalError(data, `HTTP ${res.status}`)
+    throw new Error(
+      `Pesapal auth failed (${reason}). If you're using sandbox/demo keys, make sure ` +
+      `PESAPAL_ENVIRONMENT=sandbox -- demo keys don't work against the production API.`
+    )
+  }
   return data.token
 }
 
@@ -52,7 +70,7 @@ async function ensureIpnRegistered() {
   })
 
   const data = await res.json()
-  if (!res.ok || !data.ipn_id) throw new Error(data.message || 'Failed to register Pesapal IPN URL')
+  if (!res.ok || !data.ipn_id) throw new Error(extractPesapalError(data, 'Failed to register Pesapal IPN URL'))
 
   cachedIpnId = data.ipn_id
   return cachedIpnId
@@ -90,7 +108,7 @@ export async function submitOrder({ amount, phone, orderId, email, callbackUrl }
   })
 
   const data = await res.json()
-  if (!res.ok || !data.redirect_url) throw new Error(data.message || 'Pesapal order submission failed')
+  if (!res.ok || !data.redirect_url) throw new Error(extractPesapalError(data, 'Pesapal order submission failed'))
 
   return { providerRef: data.order_tracking_id, redirectUrl: data.redirect_url }
 }
@@ -103,6 +121,6 @@ export async function checkStatus(orderTrackingId) {
   })
 
   const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Pesapal status check failed')
+  if (!res.ok) throw new Error(extractPesapalError(data, 'Pesapal status check failed'))
   return data.payment_status_description // 'COMPLETED' | 'FAILED' | 'PENDING' | 'INVALID' | 'REVERSED'
 }
